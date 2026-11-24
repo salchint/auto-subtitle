@@ -35,6 +35,28 @@ Adding `--task translate` will translate the subtitles into English:
 
     auto_subtitle /path/to/video.mp4 --task translate
 
+### Subtitle style
+
+By default, subtitles are rendered in the `Aerolite` font in dark navy blue (`#1B2A4A`) on a slightly transparent warm gold box (`#F2C14ECC`, 80% opacity) at the bottom of the video. You can change this with:
+
+- `--font` – name of any installed font (e.g. `"DejaVu Sans"`)
+- `--font_size` – font size, relative to a 288px-high canvas and scaled to the video (default `18`)
+- `--font_colour` / `--font_color` – text colour as `#RRGGBB`, or `#RRGGBBAA` where `AA` is the opacity
+- `--background_colour` / `--background_color` – colour of the box behind the text, same format
+- `--position` – one of `bottom`, `top`, `center`, `left`, `right`, `bottom-left`, `bottom-right`, `top-left`, `top-right`
+- `--max_lines` – maximum number of lines shown at once (default `1`)
+- `--max_line_width` – maximum characters per line (default `42`). Longer passages are split into several short subtitles, timed using Whisper's word timestamps. `0` keeps Whisper's original segments.
+- `--animation` – word-by-word animation (default `none`):
+  - `karaoke` – the whole line is visible and the word being spoken is coloured in the highlight colour
+  - `pop` – each word pops in (grows, overshoots slightly and settles) at the moment it is spoken
+- `--highlight_colour` / `--highlight_color` – colour of the spoken word with `--animation karaoke` (default deep crimson `#A4161A`)
+
+Animated subtitles are rendered from an `.ass` file (saved next to the `.srt` when `--output_srt true` is used).
+
+For example, white text on a semi-transparent black box at the top:
+
+    auto_subtitle /path/to/video.mp4 --font "DejaVu Sans" --font_color "#FFFFFF" --background_color "#000000AA" --position top
+
 Run the following to view all available options:
 
     auto_subtitle --help
