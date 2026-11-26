@@ -57,6 +57,14 @@ For example, white text on a semi-transparent black box at the top:
 
     auto_subtitle /path/to/video.mp4 --font "DejaVu Sans" --font_color "#FFFFFF" --background_color "#000000AA" --position top
 
+### Video quality
+
+Burning in subtitles means the video has to be re-encoded. The audio is copied unchanged (it is only converted to AAC if its format can't be stored in an `.mp4`, e.g. PCM).
+
+- `--video_codec` – `libx264` (H.264, plays everywhere; default) or `libx265` (H.265, smaller files)
+- `--crf` – quality from 0 to 51, lower is better (and bigger). Defaults to a visually near-lossless 18 for H.264 and 20 for H.265.
+- `--preset` – encoding speed from `ultrafast` to `veryslow` (default `medium`); slower presets give smaller files at the same quality
+
 Run the following to view all available options:
 
     auto_subtitle --help

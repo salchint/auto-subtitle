@@ -7,6 +7,13 @@ import tempfile
 from .utils import filename, str2bool, write_srt, split_segments, hex2ass, POSITIONS, LEGACY_ALIGNMENT
 from .ass import write_ass
 
+# Supported video encoders and their default CRF (visually near-lossless)
+VIDEO_CODECS = {"libx264": 18, "libx265": 20}
+PRESETS = ["ultrafast", "superfast", "veryfast", "faster", "fast",
+           "medium", "slow", "slower", "veryslow"]
+# Audio codecs that can be copied into an .mp4 without re-encoding
+MP4_AUDIO_CODECS = {"aac", "mp3", "ac3", "eac3", "alac", "opus", "flac"}
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -50,6 +57,16 @@ def main():
     style.add_argument("--highlight_colour", "--highlight_color", type=hex2ass, default="#A4161A",
                        help="colour of the spoken word with --animation karaoke; default is deep crimson")
 
+    encoding = parser.add_argument_group(
+        "video encoding", "burning in subtitles re-encodes the video; audio is copied unchanged when possible")
+    encoding.add_argument("--video_codec", type=str, default="libx264", choices=list(VIDEO_CODECS),
+                          help="H.264 (libx264) plays everywhere; H.265 (libx265) gives smaller files")
+    encoding.add_argument("--crf", type=int, default=None,
+                          help="quality, 0-51, lower is better and bigger; default 18 for libx264 "
+                               "and 20 for libx265 (both visually near-lossless)")
+    encoding.add_argument("--preset", type=str, default="medium", choices=PRESETS,
+                          help="encoding speed; slower presets give smaller files at the same quality")
+
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
     output_dir: str = args.pop("output_dir")
@@ -64,6 +81,13 @@ def main():
     max_line_width: int = args.pop("max_line_width")
     if max_lines < 1 or max_line_width < 0:
         parser.error("--max_lines must be >= 1 and --max_line_width must be >= 0")
+    video_codec: str = args.pop("video_codec")
+    crf: int = args.pop("crf")
+    preset: str = args.pop("preset")
+    if crf is None:
+        crf = VIDEO_CODECS[video_codec]
+    elif not 0 <= crf <= 51:
+        parser.error("--crf must be between 0 and 51")
     split = bool(max_line_width) or animation != "none"
     if split:
         # per-word timings let us split long segments into short, correctly
@@ -96,7 +120,6 @@ def main():
         print(f"Adding subtitles to {filename(path)}...")
 
         video = ffmpeg.input(path)
-        audio = video.audio
 
         if animation == "none":
             subtitled = video.filter('subtitles', srt_path, force_style=force_style(style))
@@ -108,7 +131,26 @@ def main():
                 write_ass(cues, ass, style, width, height, animation)
             subtitled = video.filter('subtitles', ass_path)
 
-        ffmpeg.concat(subtitled, audio, v=1, a=1).output(out_path).run(
+        output_args = {
+            "vcodec": video_codec, "crf": crf, "preset": preset,
+            # put the index at the start so the video can play while downloading
+            "movflags": "+faststart",
+        }
+        if video_codec == "libx265":
+            output_args["tag:v"] = "hvc1"  # needed for H.265 playback on Apple devices
+
+        streams = [subtitled]
+        audio_codecs = [s["codec_name"] for s in ffmpeg.probe(path)["streams"]
+                        if s["codec_type"] == "audio"]
+        if audio_codecs:
+            streams.append(video.audio)
+            if all(codec in MP4_AUDIO_CODECS for codec in audio_codecs):
+                output_args["acodec"] = "copy"
+            else:
+                # e.g. PCM or Vorbis audio can't go into an .mp4 as-is
+                output_args.update(acodec="aac", audio_bitrate="192k")
+
+        ffmpeg.output(*streams, out_path, **output_args).run(
             quiet=True, overwrite_output=True)
 
         print(f"Saved subtitled video to {os.path.abspath(out_path)}.")
