@@ -35,6 +35,23 @@ Adding `--task translate` will translate the subtitles into English:
 
     auto_subtitle /path/to/video.mp4 --task translate
 
+### Improving accuracy
+
+Smaller models often misspell names and special terms. Two options help:
+
+- `--initial_prompt` – a short text that hints Whisper at the names, terms and spelling to expect. By default it applies throughout the video (`--carry_initial_prompt true`); keep it short and natural, as Whisper may otherwise echo it during silence.
+
+      auto_subtitle video.mp4 --initial_prompt "Outbreak Costa Rica. Surf, Tamarindo, Nosara, pura vida."
+
+- `--replacements` – a file of corrections applied before the subtitles are burned in, one `wrong = right` rule per line. Matching ignores case and punctuation and only matches whole words; an empty right side removes the words (e.g. fillers). Corrected words keep their timing, so this works with animations too.
+
+      # fixes.txt
+      costa rika = Costa Rica
+      Costarica  = Costa Rica
+      um =
+
+      auto_subtitle video.mp4 --replacements fixes.txt
+
 ### Subtitle style
 
 By default, subtitles are rendered in the `Aerolite` font in dark navy blue (`#1B2A4A`) on a slightly transparent warm gold box (`#F2C14ECC`, 80% opacity) at the bottom of the video. You can change this with:

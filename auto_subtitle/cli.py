@@ -6,6 +6,7 @@ import warnings
 import tempfile
 from .utils import filename, str2bool, write_srt, split_segments, hex2ass, POSITIONS, LEGACY_ALIGNMENT
 from .ass import write_ass
+from .corrections import load_replacements, apply_replacements
 
 # Supported video encoders and their default CRF (visually near-lossless)
 VIDEO_CODECS = {"libx264": 18, "libx265": 20}
@@ -35,6 +36,15 @@ def main():
                         "transcribe", "translate"], help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')")
     parser.add_argument("--language", type=str, default="auto", choices=["auto","af","am","ar","as","az","ba","be","bg","bn","bo","br","bs","ca","cs","cy","da","de","el","en","es","et","eu","fa","fi","fo","fr","gl","gu","ha","haw","he","hi","hr","ht","hu","hy","id","is","it","ja","jw","ka","kk","km","kn","ko","la","lb","ln","lo","lt","lv","mg","mi","mk","ml","mn","mr","ms","mt","my","ne","nl","nn","no","oc","pa","pl","ps","pt","ro","ru","sa","sd","si","sk","sl","sn","so","sq","sr","su","sv","sw","ta","te","tg","th","tk","tl","tr","tt","uk","ur","uz","vi","yi","yo","zh"], 
     help="What is the origin language of the video? If unset, it is detected automatically.")
+
+    accuracy = parser.add_argument_group("transcription accuracy")
+    accuracy.add_argument("--initial_prompt", type=str, default=None,
+                          help="text that hints Whisper at names, terms and spelling, "
+                               "e.g. \"Outbreak Costa Rica. Surf, Tamarindo, pura vida.\"")
+    accuracy.add_argument("--carry_initial_prompt", type=str2bool, default=True,
+                          help="keep applying --initial_prompt throughout the video, not just at the start")
+    accuracy.add_argument("--replacements", type=str, default=None,
+                          help="file of corrections applied before burning in, one 'wrong = right' per line")
 
     style = parser.add_argument_group("subtitle style")
     style.add_argument("--font", type=str, default="Aerolite",
@@ -73,6 +83,13 @@ def main():
     output_srt: bool = args.pop("output_srt")
     srt_only: bool = args.pop("srt_only")
     language: str = args.pop("language")
+    replacements_path: str = args.pop("replacements")
+    try:
+        replacements = load_replacements(replacements_path) if replacements_path else []
+    except (OSError, ValueError) as error:
+        parser.error(f"--replacements: {error}")
+    if args["initial_prompt"] is None:
+        args.pop("carry_initial_prompt")  # only meaningful with a prompt
     style = {key: args.pop(key) for key in (
         "font", "font_size", "font_colour", "background_colour", "highlight_colour")}
     style["alignment"] = POSITIONS[args.pop("position")]
@@ -108,7 +125,7 @@ def main():
     audios = get_audio(args.pop("video"))
     subtitles = get_subtitles(
         audios, output_srt or srt_only, output_dir, lambda audio_path: model.transcribe(audio_path, **args),
-        max_lines, max_line_width if split else None
+        max_lines, max_line_width if split else None, replacements
     )
 
     if srt_only:
@@ -201,7 +218,7 @@ def get_audio(paths):
 
 
 def get_subtitles(audio_paths: list, output_srt: bool, output_dir: str, transcribe: callable,
-                  max_lines: int = 1, max_line_width: int = None):
+                  max_lines: int = 1, max_line_width: int = None, replacements: list = ()):
     """Transcribe each audio file and write its .srt. max_line_width=None keeps
     Whisper's segments as they are; 0 splits into cues without a width limit.
     Returns {video path: (srt path, cues)}."""
@@ -220,7 +237,7 @@ def get_subtitles(audio_paths: list, output_srt: bool, output_dir: str, transcri
         warnings.filterwarnings("default")
 
         with open(srt_path, "w", encoding="utf-8") as srt:
-            segments = result["segments"]
+            segments = apply_replacements(result["segments"], replacements)
             if max_line_width is not None:
                 segments = split_segments(segments, max_lines, max_line_width)
             write_srt(segments, file=srt)
