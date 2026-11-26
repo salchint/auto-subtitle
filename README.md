@@ -4,9 +4,16 @@ This repository uses `ffmpeg` and [OpenAI's Whisper](https://openai.com/blog/whi
 
 ## Installation
 
-To get started, you'll need Python 3.7 or newer. Install the binary by running the following command:
+To get started, you'll need Python 3.10 or newer. Install it from a copy of this repository into a virtual environment (on Debian and Ubuntu, the system Python refuses `pip install` outside one):
 
-    pip install git+https://github.com/m1guelpf/auto-subtitle.git
+```bash
+cd auto_subtitle                 # the folder containing setup.py
+python3 -m venv .venv
+source .venv/bin/activate        # on Windows: .venv\Scripts\activate
+pip install .                    # or `pip install -e .` to work on the code
+```
+
+This installs Whisper and PyTorch, which is a large download (several GB with GPU support). Whisper uses an NVIDIA GPU automatically if one is available, and downloads each model to `~/.cache/whisper` the first time it is used. Activate the virtual environment again (`source .venv/bin/activate`) in each new terminal before running `auto_subtitle`.
 
 You'll also need to install [`ffmpeg`](https://ffmpeg.org/), which is available from most package managers:
 
@@ -20,6 +27,12 @@ brew install ffmpeg
 # on Windows using Chocolatey (https://chocolatey.org/)
 choco install ffmpeg
 ```
+
+Burning in subtitles needs an `ffmpeg` built with `libass`. Check that this prints a `subtitles` line:
+
+    ffmpeg -hide_banner -filters | grep subtitles
+
+The default subtitle font is Aerolite. Install it on your system, or choose another installed font with `--font`; if the font isn't found, a fallback font is used without warning.
 
 ## Usage
 
