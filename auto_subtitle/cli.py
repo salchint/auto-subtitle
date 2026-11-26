@@ -44,7 +44,7 @@ def main():
     style.add_argument("--font_colour", "--font_color", type=hex2ass, default="#1B2A4A",
                        help="text colour as #RRGGBB or #RRGGBBAA (AA = opacity); default is dark navy blue")
     style.add_argument("--background_colour", "--background_color", type=hex2ass, default="#F2C14ECC",
-                       help="colour of the box behind the text as #RRGGBB or #RRGGBBAA; default is warm gold at 80% opacity")
+                       help="colour of the box behind the text as #RRGGBB or #RRGGBBAA; default is warm gold at 80%% opacity")
     style.add_argument("--position", type=str, default="bottom", choices=list(POSITIONS),
                        help="where on the screen to place the subtitles")
     style.add_argument("--max_lines", type=int, default=1,
